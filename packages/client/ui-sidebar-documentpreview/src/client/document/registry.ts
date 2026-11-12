@@ -12,6 +12,19 @@ export interface DocumentPreviewDefinition {
   /** File suffixes without a leading dot; compound suffixes such as tar.gz are accepted. */
   readonly extensions: readonly string[]
   /**
+   * Whole filenames claimed alongside `extensions`, compared against the final
+   * path segment case-insensitively. A name whose language no suffix reads
+   * (`CMakeLists.txt`, `.bashrc`) is claimed here rather than by adding a suffix
+   * no other file carries; every entry is listed lowercase.
+   */
+  readonly names?: readonly string[]
+  /**
+   * Claims a filename whose final segment carries no dot at all, so a renderer
+   * can offer itself for names the suffix and name tables cannot classify. Code
+   * uses it, because a language can be chosen for such a file after it opens.
+   */
+  readonly extensionless?: boolean
+  /**
    * Suffixes among `extensions` whose bytes are not readable text; a file
    * matching one loses the plain-text fallback among its viewer choices.
    * Every entry must appear in `extensions`; `register` rejects strays.
@@ -38,6 +51,16 @@ export interface DocumentPreviewDefinition {
  * @param path - decoded filename or file path.
  * @returns matching implementations, external band first, then longest suffix.
  */
+/** The length of the declared whole filename matching `name`, or 0 when none does. */
+function matchedNameLength(name: string, names: readonly string[] | undefined): number {
+  return names?.some(declared => declared.toLowerCase() === name) === true ? name.length : 0
+}
+
+/** Whether a filename has no dot in its final path segment, so no suffix can classify it. */
+function extensionlessName(name: string): boolean {
+  return !name.includes('.')
+}
+
 export function matchingDocumentPreviews(
   definitions: readonly DocumentPreviewDefinition[],
   path: string,
@@ -46,9 +69,10 @@ export function matchingDocumentPreviews(
   return definitions.map((definition, order) => ({
     definition, order,
     rank: definition.priority === 'builtin' ? 0 : 1,
-    length: matchedSuffixLength(name, definition.extensions),
+    length: Math.max(matchedSuffixLength(name, definition.extensions), matchedNameLength(name, definition.names)),
+    extensionless: definition.extensionless === true && extensionlessName(name),
   }))
-    .filter(candidate => candidate.length > 0)
+    .filter(candidate => candidate.length > 0 || candidate.extensionless)
     .sort((left, right) => right.rank - left.rank || right.length - left.length || left.order - right.order)
     .map(candidate => candidate.definition)
 }
@@ -91,8 +115,8 @@ export class DocumentPreviewRegistry {
 
   /**
    * Register metadata separately from the matching keyed slot component.
-   * @param definition - unique implementation and recognized suffixes; every
-   * `binaryExtensions` entry must appear in `extensions`.
+   * @param definition - unique implementation and recognized suffixes or names;
+   * every `binaryExtensions` entry must appear in `extensions`.
    * @returns an idempotent disposer; duplicate live implementation names and
    * binary suffixes outside `extensions` throw.
    */
@@ -120,7 +144,7 @@ export class DocumentPreviewRegistry {
   /**
    * List every matching implementation in automatic-selection order.
    * @param path - decoded file path; matching never resolves filesystem access.
-   * @returns extension band first, then longest suffix, then registration order.
+   * @returns extension band first, then longest suffix or name, then registration order.
    */
   candidates(path: string): readonly DocumentPreviewDefinition[] {
     return matchingDocumentPreviews(this.snapshot, path)

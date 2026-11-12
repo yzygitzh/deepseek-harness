@@ -49,6 +49,12 @@ export interface CodeBlockProps {
   copiedLabel: string
   /** Enable the shared card toolbar and spacing; omit for custom toolbar layouts. */
   toolbarLabels?: CodeToolbarLabels | undefined
+  /**
+   * Owner control replacing the toolbar's static language label, such as a
+   * grammar menu. The owner supplies labels and choices, so copy stays with the
+   * surface that owns the locale; the card only positions it.
+   */
+  languageControl?: ReactNode | undefined
   /** With toolbarLabels, use the owner's wrapping preference and omit the toolbar's local wrap action. */
   wrap?: boolean | undefined
 }
@@ -109,7 +115,8 @@ function renderLine(line: readonly HighlightSpan[], index: number): ReactNode {
 }
 
 export function CodeBlock({
-  code, lang, diff, streaming, className, contentRef, lineNumbers = false, showHeader = true, copyLabel, copiedLabel, toolbarLabels, wrap,
+  code, lang, diff, streaming, className, contentRef, lineNumbers = false, showHeader = true, copyLabel, copiedLabel, toolbarLabels,
+  languageControl, wrap,
 }: CodeBlockProps) {
   const trimmed = code.endsWith('\n') ? code.slice(0, -1) : code
   const diffRows = useMemo(() => ((diff ?? isDiffFenceLanguage(lang)) ? parseDiffFence(trimmed) : undefined),
@@ -250,7 +257,7 @@ export function CodeBlock({
       {/* These paired attributes are stable semantic hooks for owner styling and DOM tests. */}
       {showHeader && <div className={css.bannerWrap}>
         {toolbarLabels !== undefined ? <CodeToolbar
-          lang={lang} labels={toolbarLabels} copyLabel={copyLabel} copiedLabel={copiedLabel}
+          lang={lang} heading={languageControl} labels={toolbarLabels} copyLabel={copyLabel} copiedLabel={copiedLabel}
           copied={copied} wrapped={wrapped} onCopy={onCopy}
           onWrap={wrap === undefined ? () => { setWrapped(value => !value) } : undefined}
         /> : <div className={css.banner} data-code-block-banner>

@@ -4,18 +4,31 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { absoluteFileAddress, sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
 import { CodeBody } from '../src/client/code/CodeBody.tsx'
 import type { CodeBodyProps } from '../src/client/code/CodeBody.tsx'
 import type { DocumentContent } from '../src/client/document/contract.ts'
+import { createTextStore } from '../src/client/store.ts'
+import type { TextState } from '../src/client/store.ts'
 import { en, zh } from '../src/client/code/locales.ts'
 import css from '../src/client/code/CodeBody.module.css'
 import primitiveCss from '../../ui-primitives/src/markdown/CodeBlock.module.css'
 
 const SESSION = 'code-preview' as SessionId
+const TAB = 'code-tab' as TabId
 let stylesheet: HTMLStyleElement | undefined
+let store = createTextStore().create()
+
+/** The store seat a document body reads: the tab's own data, then its writes. */
+function storeSeats(): Pick<CodeBodyProps, 'useStore' | 'actions'> {
+  return {
+    useStore: (selector: (state: TextState) => unknown) => selector(store.getSnapshot()),
+    actions: store.actions,
+  } as Pick<CodeBodyProps, 'useStore' | 'actions'>
+}
 
 afterEach(() => {
   try {
@@ -23,6 +36,7 @@ afterEach(() => {
   } finally {
     stylesheet?.remove()
     stylesheet = undefined
+    store = createTextStore().create()
   }
 })
 
@@ -38,11 +52,17 @@ function contents(pages: readonly string[], eof = false): DocumentContent {
   }
 }
 
+/** This renderer's namespace plus the shared code toolbar vocabulary it also reads. */
+const COPY: Readonly<Record<string, string>> = {
+  ...en, 'codeBlock.title': 'Code block', 'codeBlock.wrap': 'Wrap', 'codeBlock.unwrap': 'Unwrap',
+}
+
 /** Unused framework seats are omitted; this renderer reads only owner data and t. */
 function props(content: DocumentContent, overrides: Partial<CodeBodyProps> = {}): CodeBodyProps {
   return {
     resourceAddress: sessionFileAddress(SESSION, 'source.ts'), sessionId: SESSION,
-    content, wrap: false, t: (key: keyof typeof en) => en[key], ...overrides,
+    content, wrap: false, t: (key: keyof typeof en) => COPY[key] ?? key,
+    useTabInfo: () => ({ tab: { id: TAB } }), ...storeSeats(), ...overrides,
   } as CodeBodyProps
 }
 
@@ -73,7 +93,8 @@ function installStyles(): void {
 
 describe('CodeBody', () => {
   it('rejects a malformed file address without starting the highlighter', () => {
-    expect(() => CodeBody(props(contents(['plain'], true), { resourceAddress: 'not-a-file-address' }))).toThrow('not a file address')
+    expect(() => render(<CodeBody {...props(contents(['plain'], true), { resourceAddress: 'not-a-file-address' })} />))
+      .toThrow('not a file address')
   })
 
   it.each([
@@ -86,7 +107,7 @@ describe('CodeBody', () => {
     expect(view.container.querySelector('[data-line-numbers]')).not.toBeNull()
     const copy = view.getByRole('button', { name: 'Copy' })
     expect(copy.textContent).toBe('')
-    expect(view.getAllByRole('button')).toHaveLength(1)
+    expect(view.getAllByRole('button')).toHaveLength(2)
     fireEvent.pointerEnter(copy)
     expect(view.getByRole('tooltip').textContent).toBe('Copy')
   })
@@ -146,10 +167,50 @@ describe('CodeBody', () => {
   })
 
   it('passes localized controls and ignores byte contents outside its loading mode', () => {
-    const view = render(<CodeBody {...props(contents(['const a = 1'], true), { t: key => zh[key as keyof typeof zh] })} />)
+    const view = render(<CodeBody {...props(contents(['const a = 1'], true), { t: key => ({ ...zh, 'codeBlock.title': '代码块' } as Record<string, string>)[key] ?? key })} />)
     expect(view.getByRole('button', { name: '复制' })).toBeTruthy()
     view.rerender(<CodeBody {...props({ kind: 'bytes', data: new TextEncoder().encode('a') })} />)
     expect(view.container.querySelector('.md-code-block')).toBeNull()
+  })
+
+  it('renders a .diff file as diff rows instead of plain source', () => {
+    const diff = ['--- a/src/app.ts', '+++ b/src/app.ts', '@@ -1,1 +1,1 @@', '-const before = 1', '+const after = 2'].join('\n')
+    const view = render(<CodeBody {...props(contents([diff], true), { resourceAddress: sessionFileAddress(SESSION, 'changes.diff') })} />)
+    expect(element(view.container, '[data-code-block-banner]').textContent).toContain('diff')
+    expect(view.container.querySelector('[class*="diffAdd"]')).not.toBeNull()
+    expect(view.container.querySelector('[class*="diffDel"]')).not.toBeNull()
+    expect(element(view.container, 'pre').textContent).toBe(diff)
+  })
+
+  it('names the extensionless file with the grammar the reader chooses', async () => {
+    const code = 'def answer():\n    return 42'
+    const view = render(<CodeBody {...props(contents([code], true), { resourceAddress: sessionFileAddress(SESSION, 'script') })} />)
+    const trigger = element(view.container, '[data-code-language-menu]')
+    expect(trigger.textContent).toBe('Code block')
+    fireEvent.click(trigger)
+    expect(screen.getByRole('menuitem', { name: 'Automatic' })).toBeDefined()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'python' }))
+    expect(store.getSnapshot().byTab[TAB]?.language).toBe('python')
+    expect(element(view.container, '[data-code-language-menu]').textContent).toBe('python')
+    await waitFor(() => { expect(view.container.querySelector('.shiki')).not.toBeNull() })
+    expect(view.container.querySelectorAll('.shiki span[style]').length).toBeGreaterThan(1)
+    // The menu also dismisses itself, which returns the trigger to its closed state.
+    fireEvent.click(element(view.container, '[data-code-language-menu]'))
+    expect(screen.getByRole('menuitem', { name: 'Automatic' })).toBeDefined()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => { expect(screen.queryByRole('menuitem', { name: 'Automatic' })).toBeNull() })
+  })
+
+  it('returns to the filename language through Automatic', () => {
+    const view = render(<CodeBody {...props(contents(['all:\n\techo hi'], true), { resourceAddress: sessionFileAddress(SESSION, 'Makefile') })} />)
+    expect(element(view.container, '[data-code-language-menu]').textContent).toBe('make')
+    fireEvent.click(element(view.container, '[data-code-language-menu]'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'python' }))
+    expect(store.getSnapshot().byTab[TAB]?.language).toBe('python')
+    fireEvent.click(element(view.container, '[data-code-language-menu]'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Automatic' }))
+    expect(store.getSnapshot().byTab[TAB]?.language).toBeUndefined()
+    expect(element(view.container, '[data-code-language-menu]').textContent).toBe('make')
   })
 
   it('keeps a stable inner scrollport while switching wrapping without remounting the highlighter', () => {
@@ -171,7 +232,7 @@ describe('CodeBody', () => {
     expect(getComputedStyle(pre).wordBreak).toBe('normal')
     view.rerender(<CodeBody {...props(content, { wrap: true })} />)
     expect(block.getAttribute('data-code-wrap')).toBe('true')
-    expect(view.getAllByRole('button')).toHaveLength(1)
+    expect(view.getAllByRole('button')).toHaveLength(2)
     expect(element(view.container, '.shiki')).toBe(pre)
     expect(element(view.container, '[data-code-block-content]')).toBe(scrollport)
     expect(getComputedStyle(pre).whiteSpace).toBe('pre-wrap')

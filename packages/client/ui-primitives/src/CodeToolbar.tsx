@@ -1,4 +1,5 @@
 /** Shared language, wrapping, and clipboard controls for code cards. */
+import type { ReactNode } from 'react'
 import {
   IconCheckOutlineRegular, IconCopyOutlineRegular, IconNowrapFillRegular, IconWrapFillRegular,
 } from './icons/index.tsx'
@@ -19,6 +20,8 @@ export interface CodeToolbarLabels {
 /** Display state and callbacks for a code card's toolbar. */
 interface CodeToolbarProps {
   lang?: string | undefined
+  /** Owner control that replaces the static language label, such as a language menu. */
+  heading?: ReactNode | undefined
   title?: string | undefined
   status?: string | undefined
   labels: CodeToolbarLabels
@@ -35,13 +38,15 @@ interface CodeToolbarProps {
  * @param props - Localized labels, current state, and card-owned actions.
  * @returns The shared code-card header.
  */
-export function CodeToolbar({ lang, title, status, labels, copyLabel, copiedLabel, copied, wrapped, onCopy, onWrap }: CodeToolbarProps) {
+export function CodeToolbar({
+  lang, heading, title, status, labels, copyLabel, copiedLabel, copied, wrapped, onCopy, onWrap,
+}: CodeToolbarProps) {
   const wrapLabel = wrapped ? labels.unwrapLabel : labels.wrapLabel
   const clipboardLabel = copied ? copiedLabel : copyLabel
   return (
     <div className={css.header} data-code-block-banner>
       <div className={css.heading}>
-        <span className={css.language}>{supportsHighlighting(lang) ? lang : labels.codeLabel}</span>
+        {heading ?? <span className={css.language}>{supportsHighlighting(lang) ? lang : labels.codeLabel}</span>}
         {title !== undefined && <span className={css.title} title={title}>{title}</span>}
       </div>
       <div className={css.actions}>

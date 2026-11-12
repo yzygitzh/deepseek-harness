@@ -7,7 +7,8 @@ import {
 // The single extension table is owned by `@deepseek-ai/dsh-util-code-language`,
 // shared with the Host read card; re-export it so Client callers keep importing
 // the language selector and the preview registry's suffix list from this package.
-export { CODE_HIGHLIGHT_EXTENSIONS, languageForPath } from '@deepseek-ai/dsh-util-code-language'
+export { CODE_HIGHLIGHT_EXTENSIONS, CODE_HIGHLIGHT_FILENAMES, languageForPath } from '@deepseek-ai/dsh-util-code-language'
+export { HIGHLIGHT_LANGUAGES } from './markdown/highlight.ts'
 
 /** Highlight one source fragment into one token list per line. */
 export type CodeHighlighter = (code: string) => HighlightSpan[][] | undefined
