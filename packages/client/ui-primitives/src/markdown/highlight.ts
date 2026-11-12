@@ -182,6 +182,7 @@ const LAZY_GRAMMARS = new Map<string, () => Promise<LangModule>>([
   ['make', () => import('@shikijs/langs/make')],
   ['cmake', () => import('@shikijs/langs/cmake')],
   ['groovy', () => import('@shikijs/langs/groovy')],
+  ['docker', () => import('@shikijs/langs/dockerfile')],
 ])
 
 /**
@@ -308,6 +309,9 @@ const LANG_ALIASES = new Map<string, string>([
   ['cmake', 'cmake'],
   ['groovy', 'groovy'],
   ['gradle', 'groovy'],
+  // Shiki's module registers the `docker` grammar with `dockerfile` as its alias.
+  ['dockerfile', 'docker'],
+  ['docker', 'docker'],
 ])
 
 /**
@@ -327,6 +331,16 @@ export function grammarForHint(lang: string | undefined): string | undefined {
 export function supportsHighlighting(lang: string | undefined): boolean {
   return grammarForHint(lang) !== undefined
 }
+
+/**
+ * Grammar ids {@link grammarForHint} resolves to, sorted for display. A grammar
+ * picker offers these ids as its choices; they are the values the extension and
+ * read-hint tables resolve, so a chosen id tokenizes through the same aliases a
+ * filename would. Aliases (`ts`, `yml`, `ps1`) stay out: they name the same
+ * grammar, and a picker listing them twice would offer two labels for one
+ * highlighting result.
+ */
+export const HIGHLIGHT_LANGUAGES: readonly string[] = [...new Set(LANG_ALIASES.values())].sort()
 
 /** All token colors resolve through `--shiki-*` custom properties (theme package sheets). */
 const cssVariablesTheme = createCssVariablesTheme({

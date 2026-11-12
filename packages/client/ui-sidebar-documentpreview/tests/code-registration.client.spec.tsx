@@ -4,15 +4,16 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { act } from '@testing-library/react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { CODE_HIGHLIGHT_EXTENSIONS } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { Context } from '@deepseek-ai/cordis'
+import { CODE_HIGHLIGHT_EXTENSIONS, CODE_HIGHLIGHT_FILENAMES } from '@deepseek-ai/dsh-client-ui-primitives'
 import { apply } from '../src/client/code/index.ts'
 import { CodeBody } from '../src/client/code/CodeBody.tsx'
 import { DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import { documentTabInfoFactory } from '../src/client/document/contract.ts'
+import { createTextStore } from '../src/client/store.ts'
 
 const ID = '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/code'
 const SLOT = 'sidebar.right.tab.document'
-const plugin = { inject: ['slots', 'locale', 'documentPreviews'], apply }
 let runtime: SlotTestRuntime | undefined
 
 afterEach(async () => {
@@ -28,18 +29,23 @@ async function boot() {
   rt.slots.installLocale(locale)
   const previews = new DocumentPreviewRegistry()
   rt.ctx.provide('documentPreviews', previews)
+  const store = createTextStore()
+  const plugin = { inject: ['slots', 'locale', 'documentPreviews'], apply: (ctx: Context) => { apply(ctx, store) } }
   const declare = () => rt.declare({
     [SLOT]: { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
   })
-  return { rt, locale, previews, declare }
+  return { rt, locale, previews, declare, plugin }
 }
 
 describe('code renderer registration', () => {
   it('publishes builtin metadata before the document slot exists and waits to register its body', async () => {
     const h = await boot()
-    await h.rt.mount(plugin)
+    await h.rt.mount(h.plugin)
     expect(h.previews.getSnapshot()).toHaveLength(1)
-    expect(h.previews.getSnapshot()[0]).toMatchObject({ id: ID, extensions: CODE_HIGHLIGHT_EXTENSIONS, priority: 'builtin', loading: 'text-pages', wrap: true })
+    expect(h.previews.getSnapshot()[0]).toMatchObject({
+      id: ID, extensions: CODE_HIGHLIGHT_EXTENSIONS, names: CODE_HIGHLIGHT_FILENAMES, extensionless: true,
+      priority: 'builtin', loading: 'text-pages', wrap: true,
+    })
     expect(h.rt.slots.entries(SLOT)).toEqual([])
     await h.declare()
     const entries = h.rt.slots.entries(SLOT)
@@ -50,17 +56,27 @@ describe('code renderer registration', () => {
 
   it('admits ini and other text configuration suffixes to the code renderer', async () => {
     const h = await boot()
-    await h.rt.mount(plugin)
+    await h.rt.mount(h.plugin)
     for (const path of ['config.ini', 'C:\\work\\settings.INI', 'pyproject.toml']) {
       expect(h.previews.candidates(path).map(item => item.id), path).toEqual([ID])
     }
     expect(h.previews.candidates('notes.unknown')).toEqual([])
   })
 
+  it('claims extensionless names and the filenames no suffix classifies', async () => {
+    const h = await boot()
+    await h.rt.mount(h.plugin)
+    for (const path of ['Makefile', 'work/Dockerfile', 'CMakeLists.txt', '.bashrc']) {
+      expect(h.previews.candidates(path).map(item => item.id), path).toEqual([ID])
+    }
+    // A suffix still decides a name that carries one the table does not read.
+    expect(h.previews.candidates('notes.unknown')).toEqual([])
+  })
+
   it('resolves localized names at read time and removes metadata, locale, and body on disposal', async () => {
     const h = await boot()
     await h.declare()
-    const feature = await h.rt.mount(plugin)
+    const feature = await h.rt.mount(h.plugin)
     const definition = h.previews.getSnapshot()[0]
     await act(async () => { h.locale.setLocale('en') })
     expect(definition?.title()).toBe('Code')
@@ -75,7 +91,7 @@ describe('code renderer registration', () => {
   it('remounts the keyed body after the document owner redeclares its slot', async () => {
     const h = await boot()
     await h.declare()
-    await h.rt.mount(plugin)
+    await h.rt.mount(h.plugin)
     await act(async () => { h.rt.root.release() })
     expect(h.rt.slots.entries(SLOT)).toEqual([])
     expect(h.previews.getSnapshot()).toHaveLength(1)
@@ -91,7 +107,7 @@ describe('code renderer registration', () => {
         title: () => extension, loading: extension === 'html' ? 'bytes-complete' : 'text-pages',
       }))
     }
-    await h.rt.mount(plugin)
+    await h.rt.mount(h.plugin)
     expect(h.previews.candidates('page.html').map(item => item.id)).toEqual(['dedicated-html', ID])
     expect(h.previews.candidates('README.md').map(item => item.id)).toEqual(['dedicated-md', ID])
   })

@@ -115,6 +115,16 @@ describe('document extension seat', () => {
     },
   )
 
+  it('opens an extensionless file in the code renderer and keeps the plain viewer as a choice', async () => {
+    const h = await boot()
+    h.open('Makefile')
+    await waitFor(() => { expect(h.view.container.querySelector('[data-code-preview]')).not.toBeNull() })
+    expect(h.view.container.querySelector('[data-code-language-menu]')).not.toBeNull()
+    fireEvent.click(h.view.container.querySelector('[data-document-viewer-menu]')!)
+    expect(screen.getByRole('menuitem', { name: 'Code' })).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: 'Plain text' })).toBeDefined()
+  })
+
   it('rejects an unscoped absolute address through candidates before mounting a reader', async () => {
     const h = await boot()
     const address = absoluteFileAddress('/other/notes.unknown')

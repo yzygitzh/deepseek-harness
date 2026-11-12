@@ -88,6 +88,19 @@ describe('highlightLines', () => {
   })
 })
 
+describe('lazy grammars', () => {
+  it('loads the Dockerfile grammar through the alias its module registers', async () => {
+    let notified = 0
+    const stop = subscribeGrammarLoaded(() => { notified += 1 })
+    expect(highlightLines('FROM node:24', 'dockerfile')).toBeUndefined()
+    await vi.waitFor(() => { expect(notified).toBeGreaterThan(0) })
+    const result = highlightLines('FROM node:24', 'dockerfile')
+    expect(result).not.toBeUndefined()
+    expect(result!.flat()[0]?.style?.color).toContain('var(--shiki-')
+    stop()
+  })
+})
+
 describe('ReadBlock rows', () => {
   it('renders one gutter-numbered row per line, keeping the file line numbers', () => {
     const view = render(<ReadBlock label="a.ts" lines={lines(3, 41)} totalLines={3} />)

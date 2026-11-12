@@ -38,6 +38,31 @@ describe('document preview implementations', () => {
     expect(registry.candidates('/work/.md')).toHaveLength(1)
   })
 
+  it('ranks a declared whole filename like a suffix of its length', () => {
+    const registry = new DocumentPreviewRegistry()
+    const byName = definition('by-name', { extensions: [], names: ['CMakeLists.txt'] })
+    const bySuffix = definition('by-suffix', { extensions: ['txt'] })
+    registry.register(bySuffix)
+    registry.register(byName)
+    expect(registry.candidates('build/CMakeLists.txt').map(item => item.id)).toEqual(['by-name', 'by-suffix'])
+    expect(registry.candidates('build/cmakelists.TXT').map(item => item.id)).toEqual(['by-name', 'by-suffix'])
+    expect(registry.candidates('build/notes.txt').map(item => item.id)).toEqual(['by-suffix'])
+  })
+
+  it('claims a filename with no dot only when the implementation asks for it', () => {
+    const registry = new DocumentPreviewRegistry()
+    registry.register(definition('plain', { extensions: [] }))
+    const anyName = definition('any-name', { extensions: [], extensionless: true })
+    const dispose = registry.register(anyName)
+    expect(registry.candidates('Makefile')).toEqual([anyName])
+    expect(registry.candidates('work/run')).toEqual([anyName])
+    // A dot keeps the name out of the extensionless claim, and an unknown suffix matches nothing.
+    expect(registry.candidates('notes.unknown')).toEqual([])
+    expect(registry.candidates('.bashrc')).toEqual([])
+    dispose()
+    expect(registry.candidates('Makefile')).toEqual([])
+  })
+
   it('keeps snapshots stable between changes and notifies after publishing', () => {
     const registry = new DocumentPreviewRegistry()
     const empty = registry.getSnapshot()

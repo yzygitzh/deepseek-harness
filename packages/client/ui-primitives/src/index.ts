@@ -89,7 +89,9 @@ export type {
   SettingsFieldSpec, SettingsFieldState, SettingsFieldWrite, SettingsFormActions, SettingsFormPathOp, SettingsFormScope,
   SettingsFormScopeSnapshot, SettingsFormShell, SettingsSecretSpec,
 } from './settings-form/form-model.ts'
-export { CODE_HIGHLIGHT_EXTENSIONS, languageForPath, useCodeHighlighter } from './code-highlighting.ts'
+export {
+  CODE_HIGHLIGHT_EXTENSIONS, CODE_HIGHLIGHT_FILENAMES, HIGHLIGHT_LANGUAGES, languageForPath, useCodeHighlighter,
+} from './code-highlighting.ts'
 export type { CodeHighlighter, HighlightSpan } from './code-highlighting.ts'
 export { relativeTime } from './relative-time.ts'
 export { rankByName } from './rank-by-name.ts'

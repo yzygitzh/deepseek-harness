@@ -59,3 +59,29 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* The toolbar heading doubles as the grammar menu trigger; it keeps the shared
+   language label's type and gains only the affordances of a control. */
+.language {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--ds-font-family-code);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .language:hover {
+    color: var(--dsw-alias-label-primary);
+  }
+}
+
+.language:focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+  border-radius: var(--dsw-radius-sm);
+}

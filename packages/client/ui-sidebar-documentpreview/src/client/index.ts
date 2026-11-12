@@ -128,5 +128,5 @@ export function apply(ctx: ClientContext): void {
   registerPdf(ctx)
   registerOffice(ctx, config.office)
   registerExcel(ctx, config.excel)
-  registerCode(ctx)
+  registerCode(ctx, store)
 }

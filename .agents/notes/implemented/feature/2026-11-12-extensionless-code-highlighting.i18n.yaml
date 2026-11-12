@@ -1,0 +1,31 @@
+# Bilingual-pair consistency record for 2026-11-12-extensionless-code-highlighting.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-11-12-extensionless-code-highlighting.md
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice:
+  en: 7523b77960580113
+  zh: a2f2a35e1f53358a
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/problem:
+  en: 8df2786285b5d602
+  zh: f3ccfac6c3ab46aa
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/decision:
+  en: 4dc96d060a740c96
+  zh: 0c674f8d4a1a06cc
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/decision/whole-filenames:
+  en: 90f6cbf568d6472c
+  zh: 4c474f50a75c7e2b
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/decision/extensionless-claims:
+  en: b70dbaf7bd630203
+  zh: e9b183245dab7547
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/decision/per-tab-grammar-choice:
+  en: 7d64f44abe320bf0
+  zh: 2967a89bae8d2b3d
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/alternatives-considered:
+  en: 4ee4cdfd5ecf3ff3
+  zh: f9dadb38098fbd73
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/consequences:
+  en: a40fb374ee2df3d4
+  zh: cf8ad3a41fe38751
+/agent-note-highlighting-for-extensionless-files-and-a-per-tab-grammar-choice/testing:
+  en: fc22d15f86a419c8
+  zh: eeaaffa145892dac

@@ -35,6 +35,12 @@ export interface TextTabState {
   resourcesDirty: boolean
   /** Explicit viewer choice for this tab; absence follows automatic matching. */
   rendererId?: string
+  /**
+   * Grammar chosen for this tab's Code body; absence follows the filename.
+   * A tab keeps it while the reader switches viewers, because the choice
+   * describes the file's content rather than the current body.
+   */
+  language?: string
   /** Current display-loading mode; absent before the first read. */
   mode?: DocumentLoadMode
   /** Implementation owning source loading; absent for ordinary file reads. */
@@ -99,6 +105,7 @@ type TextActions = {
   toggledAutoRefresh: (draft: TextState, tabId: TabId) => void
   resourceChanged: (draft: TextState, tabId: TabId) => void
   selected: (draft: TextState, tabId: TabId, rendererId: string | undefined) => void
+  languageSelected: (draft: TextState, tabId: TabId, language: string | undefined) => void
   loading: (draft: TextState, tabId: TabId, mode?: DocumentLoadMode, observedVersion?: string, contentRendererId?: string) => void
   rendered: (draft: TextState, tabId: TabId, revision: number, version: string) => void
   rendererFailed: (draft: TextState, tabId: TabId, revision: number) => void
@@ -132,6 +139,16 @@ export function createTextStore(): EngineStoreHandle<TextState, TextActions> {
       selected: (d, tabId: TabId, rendererId: string | undefined) => {
         if (rendererId === undefined) delete bucket(d, tabId).rendererId
         else bucket(d, tabId).rendererId = rendererId
+      },
+      /**
+       * Choose a grammar for one tab's Code body.
+       * @param d - draft.
+       * @param tabId - owning tab.
+       * @param language - grammar id, or `undefined` to follow the filename again.
+       */
+      languageSelected: (d, tabId: TabId, language: string | undefined) => {
+        if (language === undefined) delete bucket(d, tabId).language
+        else bucket(d, tabId).language = language
       },
       /**
        * Mark a page read as in flight.

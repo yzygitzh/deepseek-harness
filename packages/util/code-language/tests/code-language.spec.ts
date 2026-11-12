@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { CODE_HIGHLIGHT_EXTENSIONS, languageForPath, readLangHintForPath } from '../src/index.ts'
+import {
+  CODE_HIGHLIGHT_EXTENSIONS, CODE_HIGHLIGHT_FILENAMES, languageForPath, readLangHintForPath,
+} from '../src/index.ts'
 
 describe('languageForPath', () => {
   it.each([
@@ -26,8 +28,15 @@ describe('languageForPath', () => {
     ['schema.graphql', 'graphql'], ['query.gql', 'graphql'], ['message.proto', 'proto'],
     ['main.tf', 'hcl'], ['terraform.tfvars', 'hcl'], ['stack.hcl', 'hcl'], ['build.groovy', 'groovy'],
     ['flake.nix', 'nix'], ['App.vue', 'vue'], ['App.svelte', 'svelte'],
-    ['Makefile', undefined], ['build.mk', 'make'], ['CMakeLists.cmake', 'cmake'],
+    ['Makefile', 'make'], ['build.mk', 'make'], ['CMakeLists.cmake', 'cmake'],
     ['build.gradle', 'groovy'],
+    // Whole filenames that name their language without a suffix.
+    ['Makefile', 'make'], ['GNUmakefile', 'make'], ['Dockerfile', 'dockerfile'],
+    ['Containerfile', 'dockerfile'], ['CMakeLists.txt', 'cmake'],
+    ['Gemfile', 'ruby'], ['Rakefile', 'ruby'], ['Jenkinsfile', 'groovy'],
+    ['Snakefile', 'python'], ['SConstruct', 'python'], ['PKGBUILD', 'shellscript'],
+    ['/repo/Makefile', 'make'], ['C:\\repo\\Dockerfile', 'dockerfile'],
+    ['.bashrc', 'shellscript'], ['.zshrc', 'shellscript'], ['.bash_profile', 'shellscript'],
   ])('resolves %s to %s', (path, language) => {
     expect(languageForPath(path)).toBe(language)
   })
@@ -65,6 +74,21 @@ describe('languageForPath', () => {
     expect(languageForPath('/etc/hosts')).toBeUndefined()
     expect(languageForPath('trailingdot.')).toBeUndefined()
     expect(languageForPath('data.unknownext')).toBeUndefined()
+  })
+
+  it('prefers a recognized whole filename over the extension it also carries', () => {
+    expect(languageForPath('CMakeLists.txt')).toBe('cmake')
+    expect(languageForPath('cmakelists.txt')).toBe('cmake')
+    expect(languageForPath('CMakeLists.TXT')).toBe('cmake')
+    // A name only matches as a whole: a suffix that happens to spell one does not.
+    expect(languageForPath('notes.cmakelists.txt')).toBeUndefined()
+    expect(languageForPath('src/makefile.old')).toBeUndefined()
+  })
+
+  it('matches a dotfile name with its leading dot ignored', () => {
+    expect(languageForPath('.zshrc')).toBe('shellscript')
+    expect(languageForPath('.bashrc')).toBe('shellscript')
+    expect(languageForPath('notbashrc')).toBeUndefined()
   })
 
   it('returns undefined for a filename whose extension is an Object.prototype key', () => {
@@ -137,6 +161,7 @@ describe('readLangHintForPath', () => {
     haskell: 'hs', fsharp: 'fs', vb: 'vb', perl: 'pl', verilog: 'v',
     'system-verilog': 'sv', graphql: 'graphql', proto: 'proto', hcl: 'hcl', nix: 'nix',
     vue: 'vue', svelte: 'svelte', make: 'make', cmake: 'cmake', groovy: 'groovy',
+    dockerfile: 'dockerfile',
   }
 
   it('persists a short id for every suffix', () => {
@@ -151,6 +176,14 @@ describe('readLangHintForPath', () => {
       expect(hint, extension).toBeDefined()
       expect(allowed.has(hint ?? ''), extension).toBe(true)
     }
+  })
+
+  it('persists a short id for a recognized whole filename', () => {
+    expect(readLangHintForPath('Makefile')).toBe('make')
+    expect(readLangHintForPath('Dockerfile')).toBe('dockerfile')
+    expect(readLangHintForPath('CMakeLists.txt')).toBe('cmake')
+    expect(readLangHintForPath('.bashrc')).toBe('sh')
+    expect(readLangHintForPath('/repo/Gemfile')).toBe('rb')
   })
 
   it('returns undefined exactly when the shared table does not recognize the suffix', () => {
@@ -169,6 +202,22 @@ describe('CODE_HIGHLIGHT_EXTENSIONS', () => {
   it('resolves each listed suffix back to a language', () => {
     for (const extension of CODE_HIGHLIGHT_EXTENSIONS) {
       expect(languageForPath(`file.${extension}`), extension).toBeDefined()
+    }
+  })
+})
+
+describe('CODE_HIGHLIGHT_FILENAMES', () => {
+  it('lists every recognized filename exactly once, in its lowercase form', () => {
+    expect(new Set(CODE_HIGHLIGHT_FILENAMES).size).toBe(CODE_HIGHLIGHT_FILENAMES.length)
+    expect(CODE_HIGHLIGHT_FILENAMES).toContain('cmakelists.txt')
+    expect(CODE_HIGHLIGHT_FILENAMES).toContain('.bashrc')
+    for (const name of CODE_HIGHLIGHT_FILENAMES) expect(name).toBe(name.toLowerCase())
+  })
+
+  it('resolves each listed filename back to a language', () => {
+    for (const name of CODE_HIGHLIGHT_FILENAMES) {
+      expect(languageForPath(name), name).toBeDefined()
+      expect(languageForPath(`dir/${name}`), name).toBeDefined()
     }
   })
 })

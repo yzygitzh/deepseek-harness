@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { CodeBlock as LocalizedCodeBlock } from '../src/markdown/CodeBlock.tsx'
 import { diffBlockLabels, markdownLabels } from './labels.client.ts'
@@ -55,6 +55,14 @@ describe('diff fences', () => {
   it('highlights the body with the language the diff header names', () => {
     const { container } = render(<CodeBlock code={TS_DIFF} lang="diff" showHeader={false} />)
     expect(container.querySelectorAll('pre code span[style*="--shiki-"]').length).toBeGreaterThan(0)
+  })
+
+  it('resolves a diff header naming a file with no suffix', async () => {
+    const diff = ['--- a/Makefile', '+++ b/Makefile', '@@ -1,1 +1,1 @@', '-CFLAGS = -O2', '+CFLAGS = -O3'].join('\n')
+    const { container } = render(<CodeBlock code={diff} lang="diff" showHeader={false} />)
+    await waitFor(() => {
+      expect(container.querySelectorAll('pre code span[style*="--shiki-"]').length).toBeGreaterThan(0)
+    })
   })
 
   it('falls back to plain body text when the diff names no known language', () => {

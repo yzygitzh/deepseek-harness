@@ -28,6 +28,13 @@ describe('code highlighting', () => {
   })
 
   it.each([
+    ['Makefile', 'make'], ['Dockerfile', 'dockerfile'], ['CMakeLists.txt', 'cmake'],
+    ['Gemfile', 'ruby'], ['.bashrc', 'shellscript'], ['Jenkinsfile', 'groovy'],
+  ])('resolves the whole filename %s to %s', (path, language) => {
+    expect(languageForPath(path)).toBe(language)
+  })
+
+  it.each([
     ['build.bat', 'bat'], ['build.cmd', 'bat'], ['deploy.ps1', 'powershell'],
     ['module.psm1', 'powershell'], ['config.fish', 'fish'], ['app.properties', 'ini'],
     ['app.conf', 'ini'], ['.env', 'dotenv'], ['server.log', 'log'],

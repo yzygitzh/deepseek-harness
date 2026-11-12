@@ -28,6 +28,15 @@ describe('text store', () => {
     expect(instance.getSnapshot().byTab[TAB_1]?.rendererId).toBeUndefined()
   })
 
+  it('keeps one tab\'s grammar choice and clears it back to the filename', () => {
+    const instance = createTextStore().create()
+    instance.actions.languageSelected(TAB_1, 'python')
+    expect(instance.getSnapshot().byTab[TAB_1]?.language).toBe('python')
+    expect(instance.getSnapshot().byTab[TAB_2]).toBeUndefined()
+    instance.actions.languageSelected(TAB_1, undefined)
+    expect(instance.getSnapshot().byTab[TAB_1]?.language).toBeUndefined()
+  })
+
   it('starts empty and mints a bucket on the first write', () => {
     const instance = createTextStore().create()
     expect(instance.getSnapshot().byTab).toEqual({})
